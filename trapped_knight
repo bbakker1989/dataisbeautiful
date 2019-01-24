@@ -1,0 +1,100 @@
+# load tidyverse
+library(tidyverse)
+
+# construct a matrix with increasing integers from a center point
+spiral_matrix <- function(n) {
+  # check user input
+  if(!is.numeric(n) | n < 1 | n != floor(n)) {
+    stop("n should be a positive integer")
+  }
+  if(n %% 2 == 0) {
+    stop("n should be an uneven number")
+  }
+  # create steps
+  steps <- c(1, n, -1, -n)
+  reps <- n - seq_len(n * 2 - 1L) %/% 2
+  # create indices
+  indices <- rep(rep_len(steps, length(reps)), reps)
+  indices <- cumsum(indices)
+  # construct values
+  values <- integer(length(indices))
+  values[indices] <- rev(seq_along(indices))
+  # fill matrix (inside-out)
+  matrix(values, n, n, byrow = TRUE)
+}
+
+# create a matrix (100x100)
+m <- spiral_matrix(101)
+
+# initialize walk
+steps <- 3000
+route_mat <- matrix(NA, nrow = steps, ncol = 3)
+colnames(route_mat) <- c("row", "col", "number")
+route_mat[1, c("row", "col")] <- which(m == 1, arr.ind = TRUE)
+route_mat[1, "number"] <- m[which(m == 1, arr.ind = TRUE)]
+
+# create jump pattern query
+knight_jumps <- list(c(-1, -2), c(-1, 2), c(1, -2), c(1, 2),
+                     c(-2, -1), c(-2, 1), c(2, -1), c(2, 1))
+
+# loop over matrix in a knight fashion
+for(i in seq_along(1:steps)) {
+  
+  current_position <- route_mat[i, c("row", "col")]
+  
+  # gather values a knight's jump away
+  values <- map_dbl(knight_jumps, function(x) {
+    m[current_position[1] + x[1], current_position[2] + x[2]]
+  })
+  
+  # remove values previously visited
+  values <- values[!(values %in% route_mat[1:i, "number"])]
+  
+  # check whether values are remaining
+  if(length(values) == 0) {
+    route_mat <- route_mat[1:i, ]
+    message("No unique values remaining")
+    break
+  }
+  
+  # determine lowest value and get co-ordinates
+  min_value <- min(values)
+  value_coordinate <- which(m == min_value, arr.ind = TRUE)
+  
+  # collect and store values
+  route_mat[i+1, ] <- c(value_coordinate, min_value)
+  
+  message("Step ", i, " out of ", steps, " completed")
+  
+}
+remove(i, current_position, values, min_value, value_coordinate)
+
+# tidyfying the data
+route_df <- route_mat %>%
+  as.data.frame() %>%
+  tibble::rowid_to_column("step") %>%
+  as_tibble() %>%
+  mutate(row_end = lead(row, 1),
+         col_end = lead(col, 1))
+
+# plot the route, indiciating the first and last square to hit
+route_df %>%
+  ggplot(aes(x = row, y = col)) +
+  geom_segment(aes(xend = row_end, yend = col_end, col = step)) +
+  geom_point(data = route_df %>%
+               filter(step == min(step)),
+             shape = 1, col = "red", size = 4) +
+  geom_point(data = route_df %>%
+               filter(step == max(step)),
+             shape = 4, col = "red", size = 4) +
+  ggrepel::geom_label_repel(data = route_df %>%
+                              filter(step %in% range(.$step)),
+                            aes(label = number)) +
+  scale_color_viridis_c() +
+  labs(col = "Step") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        aspect.ratio = 1)
