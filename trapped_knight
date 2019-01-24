@@ -78,7 +78,7 @@ route_df <- route_mat %>%
          col_end = lead(col, 1))
 
 # plot the route, indiciating the first and last square to hit
-route_df %>%
+plot <- route_df %>%
   ggplot(aes(x = row, y = col)) +
   geom_segment(aes(xend = row_end, yend = col_end, col = step)) +
   geom_point(data = route_df %>%
@@ -89,7 +89,7 @@ route_df %>%
              shape = 4, col = "red", size = 4) +
   ggrepel::geom_label_repel(data = route_df %>%
                               filter(step %in% range(.$step)),
-                            aes(label = number)) +
+                            aes(label = number), nudge_x = -2, nudge_y = 1) +
   scale_color_viridis_c() +
   labs(col = "Step") +
   theme_bw() +
@@ -98,3 +98,5 @@ route_df %>%
         axis.ticks = element_blank(),
         axis.title = element_blank(),
         aspect.ratio = 1)
+
+ggsave(plot, file = "trapped_knight.jpeg")
